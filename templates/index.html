@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live GPS Check-In</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: sans-serif; overflow: hidden; background: #e5e5e5; }
+        #map { height: 100vh; width: 100vw; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        /* Floating Google Maps-style bottom UI panel */
+        .floating-panel {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 1000; background: white; width: 90%; max-width: 400px;
+            padding: 25px; border-radius: 20px; box-shadow: 0px 5px 20px rgba(0,0,0,0.2);
+            text-align: center; box-sizing: border-box;
+        }
+        h3 { margin: 0 0 5px 0; font-size: 20px; color: #202124; }
+        p { margin: 0 0 20px 0; font-size: 14px; color: #5f6368; }
+        .input-box { width: 100%; padding: 14px; font-size: 16px; border-radius: 8px; border: 1px solid #dadce0; margin-bottom: 15px; box-sizing: border-box; outline: none; background: #f1f3f4; }
+        .input-box:focus { border: 2px solid #1a73e8; background: white; padding: 13px; }
+        .btn { background-color: #1a73e8; color: white; border: none; padding: 16px; font-size: 18px; border-radius: 30px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(26,115,232,0.3); transition: 0.2s; }
+        .btn:active { background-color: #174ea6; transform: scale(0.98); }
+        #status { margin-top: 15px; font-size: 14px; font-weight: bold; color: #188038; display: none; }
+    </style>
+</head>
+<body>
+    <!-- Map loads immediately in the background -->
+    <div id="map"></div>
+    
+    <!-- Floating UI Panel -->
+    <div class="floating-panel">
+        <h3>Sri Venkateswara Dress Shop</h3>
+        <p>Destination: Tirupati, AP</p>
+        <input type="text" id="userMessage" class="input-box" placeholder="Add a note (e.g., Have my order ready)...">
+        <button class="btn" onclick="sendLocation()">Share Live Location</button>
+        <p id="status"></p>
+    </div>
+
+    <script>
+        // Start map immediately, focused on South India
+        var map = L.map('map', {zoomControl: false}).setView([12.5, 78.5], 7); 
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        
+        var destIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png', iconSize: [25, 41], iconAnchor: [12, 41] });
+        var landmarkIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png', iconSize: [25, 41], iconAnchor: [12, 41] });
+        
+        L.marker([13.6288, 79.4192], {icon: destIcon}).addTo(map).bindPopup("Dress Shop");
+        L.marker([13.6833, 79.3475], {icon: landmarkIcon}).addTo(map).bindPopup("Tirumala Temple");
+
+        function sendLocation() {
+            let btn = document.querySelector('.btn');
+            let status = document.getElementById('status');
+            let msg = document.getElementById('userMessage').value;
+            
+            btn.innerHTML = "Locating device...";
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    let lat = position.coords.latitude;
+                    let lon = position.coords.longitude;
+
+                    fetch('/update_location', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ lat: lat, lon: lon, message: msg })
+                    }).then(() => {
+                        btn.innerHTML = "✓ Location Shared";
+                        btn.style.backgroundColor = "#188038";
+                        status.innerText = "Owner has been notified!";
+                        status.style.display = "block";
+                    });
+
+                    // Drop blue pin and auto-zoom the map to fit both locations
+                    L.marker([lat, lon]).addTo(map).bindPopup("Your Location").openPopup();
+                    var bounds = L.latLngBounds([[lat, lon], [13.6288, 79.4192]]);
+                    map.fitBounds(bounds, {padding: [40, 40]});
+                    
+                }, function(error) {
+                    btn.innerHTML = "Location Denied";
+                    btn.style.backgroundColor = "#d93025";
+                });
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Owner Notification System</title>
+    <meta http-equiv="refresh" content="3">
+    <style>
+        /* Creates a flashing red alarm effect */
+        @keyframes flashAlarm {
+            0% { background-color: #ffcccc; }
+            50% { background-color: #d93025; }
+            100% { background-color: #ffcccc; }
+        }
+        body { 
+            font-family: sans-serif; text-align: center; padding-top: 50px; 
+            background-color: {{ '#f4f4f4' if not state.alert else '#d93025' }};
+            {% if state.alert %} animation: flashAlarm 1.5s infinite; {% endif %}
+            color: {{ 'white' if state.alert else '#333' }};
+            margin: 0;
+            padding-bottom: 50px;
+        }
+        .dashboard-card {
+            background: white; color: #333; padding: 40px; border-radius: 16px;
+            display: inline-block; box-shadow: 0px 10px 30px rgba(0,0,0,0.3); min-width: 450px; max-width: 90%;
+        }
+        .message-box {
+            background: #f8f9fa; border-left: 6px solid #1a73e8; padding: 20px;
+            border-radius: 8px; margin-top: 25px; font-size: 20px; text-align: left;
+        }
+        .status-text { font-size: 26px; font-weight: bold; margin-bottom: 5px; }
+        .dist { font-size: 36px; color: #d93025; margin: 10px 0; }
+        .nav-link {
+            display: inline-block;
+            margin-top: 15px;
+            font-size: 14px;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .nav-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="dashboard-card">
+        <h1>Store Terminal</h1>
+        <div class="status-text">{{ state.status }}</div>
+        
+        {% if state.distance is not none %}
+            <p style="margin:0; color:#555;">Live Customer Distance:</p>
+            <p class="dist">
+                <strong>{{ state.distance }} meters</strong>
+                {% if state.distance >= 1000 %}
+                    <br><span style="font-size: 20px; color: #777;">({{ (state.distance / 1000) | round(1) }} km)</span>
+                {% endif %}
+            </p>
+        {% endif %}
+        
+        {% if state.message %}
+            <div class="message-box">
+                <small style="color: #5f6368; text-transform: uppercase; font-weight: bold;">Note from Customer:</small><br>
+                <div style="margin-top: 8px;">"{{ state.message }}"</div>
+            </div>
+        {% endif %}
+    </div>
+    
+    <p style="color: {{ 'white' if state.alert else '#888' }};"><small>Terminal auto-syncing every 3 seconds...</small></p>
+    <div>
+        <a class="nav-link" href="/" target="_blank" style="color: {{ 'white' if state.alert else '#1a73e8' }};">&larr; Open Visitor Check-In Page</a>
+    </div>
+</body>
+</html>

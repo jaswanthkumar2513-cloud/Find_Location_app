@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Visitor Check-In</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/static/app.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f4f4f4; margin: 0; }
+        .container { max-width: 480px; margin: 0 auto; background: white; padding: 24px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .input-box { width: 100%; max-width: 320px; padding: 12px 16px; font-size: 15px; border-radius: 8px; border: 1px solid #ccc; margin-top: 10px; box-sizing: border-box; }
+        .input-box:focus { outline: none; border-color: #007bff; }
+        .btn { background-color: #007bff; color: white; border: none; padding: 14px 40px; font-size: 20px; border-radius: 50px; width: 100%; max-width: 320px; font-weight: bold; margin-top: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); cursor: pointer; transition: background-color 0.2s; }
+        .btn:hover { background-color: #0069d9; }
+        .btn:active { background-color: #0056b3; }
+        #map { height: 350px; width: 100%; max-width: 420px; margin: 20px auto; border-radius: 12px; display: none; border: 2px solid #ccc; z-index: 1; }
+        .owner-link { display: inline-block; margin-top: 20px; color: #007bff; text-decoration: none; font-size: 14px; }
+        .owner-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Sri Venkateswara Dress Shop</h2>
+        <p style="color: #666; margin-top: -8px; font-size: 14px;">Tirupati, Andhra Pradesh</p>
+        <p>Type a message and tap below to notify the shop owner.</p>
+        
+        <input type="text" id="userMessage" class="input-box" placeholder="Enter custom message or items needed...">
+        <br>
+        <button class="btn" id="sendBtn" onclick="sendLocation()">I'm Coming!</button>
+        <p id="status" style="margin-top: 15px; font-weight: bold; color: #28a745; min-height: 20px;"></p>
+        
+        <div id="map"></div>
+
+        <div>
+            <a class="owner-link" href="/owner" target="_blank">Open Owner Dashboard &rarr;</a>
+        </div>
+    </div>
+
+    <script>
+        let map = null;
+        let userMarker = null;
+
+        const SHOP_LAT = 13.6288;
+        const SHOP_LON = 79.4192;
+
+        function sendLocation() {
+            const msg = document.getElementById('userMessage').value;
+            const statusEl = document.getElementById('status');
+            statusEl.style.color = '#007bff';
+            statusEl.innerText = "Locating your device...";
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+
+                    fetch('/update_location', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ lat: lat, lon: lon, message: msg })
+                    })
+                    .then(res => res.json())
+                    .then(() => {
+                        statusEl.style.color = '#28a745';
+                        statusEl.innerText = "Alert and message sent! Owner notified.";
+                    })
+                    .catch(err => {
+                        console.error("Error updating location:", err);
+                        statusEl.style.color = '#dc3545';
+                        statusEl.innerText = "Sent location, but could not connect to server.";
+                    });
+
+                    const mapEl = document.getElementById('map');
+                    mapEl.style.display = 'block';
+
+                    if (!map) {
+                        map = L.map('map').setView([10.5, 78.5], 6); 
+                        window.map = map;
+                        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            attribution: '&copy; OpenStreetMap'
+                        }).addTo(map);
+                        
+                        // Blue pin for customer's current location
+                        userMarker = L.marker([lat, lon]).addTo(map).bindPopup("Your Current Location").openPopup();
+                        
+                        // Red pin for the Tirupati Dress Shop
+                        const destIcon = L.icon({
+                            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                            iconSize: [25, 41],
+                            iconAnchor: [12, 41],
+                            popupAnchor: [1, -34]
+                        });
+                        L.marker([SHOP_LAT, SHOP_LON], { icon: destIcon }).addTo(map).bindPopup("<b>Tirupati Dress Shop</b>");
+
+                        if (typeof addLandmarks === 'function') {
+                            addLandmarks(map);
+                        } else {
+                            const landmarkIcon = L.icon({
+                                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+                                iconSize: [25, 41],
+                                iconAnchor: [12, 41]
+                            });
+                            L.marker([13.6833, 79.3475], { icon: landmarkIcon }).addTo(map).bindPopup("Nearby Landmark: Tirumala Temple");
+                        }
+                    } else {
+                        if (userMarker) {
+                            userMarker.setLatLng([lat, lon]);
+                        }
+                    }
+
+                    setTimeout(function() {
+                        map.invalidateSize();
+                        const bounds = L.latLngBounds([[lat, lon], [SHOP_LAT, SHOP_LON]]);
+                        map.fitBounds(bounds, { padding: [30, 30] });
+                    }, 150);
+
+                }, function(error) {
+                    statusEl.style.color = '#dc3545';
+                    statusEl.innerText = "Please allow location access in your browser: " + error.message;
+                }, {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                });
+            } else {
+                statusEl.style.color = '#dc3545';
+                statusEl.innerText = "Geolocation is not supported by your browser.";
+            }
+        }
+    </script>
+</body>
+</html>
